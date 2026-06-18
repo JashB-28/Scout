@@ -1,0 +1,23 @@
+services:
+  backend:
+    build: ./backend
+    image: scoutone-backend
+    env_file:
+      - ./backend/.env
+    environment:
+      ALLOWED_ORIGINS: http://localhost:3000
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_API_BASE: http://localhost:8000
+    image: scoutone-frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    restart: unless-stopped

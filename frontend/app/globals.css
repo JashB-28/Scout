@@ -1,0 +1,90 @@
+@import "tailwindcss";
+
+:root {
+  /* Refined dark slate — a deep blue-grey base instead of flat black, with
+     softer elevated surfaces and cool-grey text. Brand hues stay as accents. */
+  --background: #0c0f17;
+  --foreground: #e7ebf3;
+  --brand-red: #e63946;
+  --brand-teal: #2a9d8f;
+  --brand-yellow: #f4c430;
+  --ink: #0c0f17;
+  --paper: #f3f6fb;
+  --muted: #8b95a8;
+  --card: #151a25;       /* elevated surface */
+  --border: #232b3a;     /* soft bluish border */
+  /* body copy + UI chrome */
+  --soft: #ccd4e2;   /* primary body text */
+  --faint: #8b95a8;  /* secondary/dimmed text */
+  --track: #222a39;  /* progress tracks, subtle fills */
+  --grid-line: rgba(255, 255, 255, 0.045);
+}
+
+html.light {
+  --background: #ffffff;
+  --foreground: #0a0a0a;
+  --ink: #0a0a0a;
+  --paper: #111111;
+  --muted: #6b7280;
+  --card: #f7f7f8;
+  --border: #e4e4e7;
+  --soft: #3f3f46;
+  --faint: #6b7280;
+  --track: #e4e4e7;
+  --grid-line: rgba(0, 0, 0, 0.05);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-brand-red: var(--brand-red);
+  --color-brand-teal: var(--brand-teal);
+  --color-brand-yellow: var(--brand-yellow);
+  --color-ink: var(--ink);
+  --color-paper: var(--paper);
+  --color-muted: var(--muted);
+  --color-card: var(--card);
+  --color-borderline: var(--border);
+  --color-soft: var(--soft);
+  --color-faint: var(--faint);
+  --color-track: var(--track);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
+
+::selection {
+  background: var(--brand-teal);
+  color: #ffffff;
+}
+
+@keyframes float-in {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.float-in {
+  animation: float-in 0.5s ease-out both;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 1; }
+}
+
+.pulse-dot {
+  animation: pulse-dot 1.2s ease-in-out infinite;
+}
+
+.hero-grid {
+  background-image:
+    linear-gradient(to right, var(--grid-line) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px);
+  background-size: 44px 44px;
+}
