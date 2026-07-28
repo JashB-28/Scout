@@ -51,6 +51,4 @@ Thumbs.db
 # (Dockerfiles and compose ARE committed; this is just for local override files)
 docker-compose.override.yml
 
-deploy/
-docker-compose.prod.yml
 ScoutOne.code-workspace

@@ -1,0 +1,27 @@
+# Caddy reverse proxy for ScoutOne — terminates HTTPS (auto Let's Encrypt)
+# and routes one public domain to the two internal containers.
+#
+#   https://DOMAIN/api/*  and  /health  -> backend  (FastAPI, SSE)
+#   everything else                      -> frontend (Next.js)
+#
+# Because the browser and the API share one origin, there are no CORS
+# preflights to worry about. DOMAIN is injected from the root .env file.
+
+{$DOMAIN} {
+	encode gzip
+
+	# Backend: research API + health check.
+	@backend path /api/* /health
+	handle @backend {
+		reverse_proxy backend:8000 {
+			# flush_interval -1 disables response buffering so Server-Sent
+			# Events stream token-by-token instead of arriving all at once.
+			flush_interval -1
+		}
+	}
+
+	# Everything else is the Next.js app.
+	handle {
+		reverse_proxy frontend:3000
+	}
+}
