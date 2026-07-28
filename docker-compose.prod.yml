@@ -1,0 +1,57 @@
+# Production stack for a single EC2 host.
+#
+# Differences from the local docker-compose.yml:
+#   * adds a Caddy reverse proxy that terminates HTTPS for one public domain
+#   * backend/frontend are NOT published to the host — only Caddy is
+#   * URLs/origins point at the real domain instead of localhost
+#
+# DOMAIN and the Groq key are supplied via env files on the server (see the
+# deploy runbook); nothing secret is committed here.
+#
+# Usage on the box:
+#   docker compose -f docker-compose.prod.yml up -d --build
+
+services:
+  backend:
+    build: ./backend
+    image: scoutone-backend
+    env_file:
+      - ./backend/.env            # holds GROQ_API_KEY (created on the server)
+    environment:
+      ALLOWED_ORIGINS: https://${DOMAIN}
+    expose:
+      - "8000"                    # internal only; reached via Caddy
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # Baked in at build time -> the browser calls the same public origin.
+        NEXT_PUBLIC_API_BASE: https://${DOMAIN}
+    image: scoutone-frontend
+    expose:
+      - "3000"                    # internal only; reached via Caddy
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "80:80"                   # ACME HTTP challenge + HTTP->HTTPS redirect
+      - "443:443"                 # public HTTPS
+    environment:
+      DOMAIN: ${DOMAIN}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data          # persists issued TLS certificates
+      - caddy_config:/config
+    depends_on:
+      - frontend
+      - backend
+    restart: unless-stopped
+
+volumes:
+  caddy_data:
+  caddy_config:
