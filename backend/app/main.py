@@ -24,7 +24,7 @@ from sse_starlette.sse import EventSourceResponse
 import time
 
 from .graph import AGENT_LABELS, AGENT_NODES, research_graph
-from .llm import validate_key
+from .llm import fallback_events, validate_key
 from .resolve import normalize_domain, resolve_company
 
 # Same company + role + provider within the TTL returns the identical cached
@@ -152,16 +152,23 @@ async def research(req: ResearchRequest):
     if cached:
         return {**cached, "notice": notice}
 
-    # Lock onto exactly one company (anchored to the website) before the agents run.
-    state["profile"] = await resolve_company(
-        state["company"], state["website"], state["llm_cfg"]
-    )
+    notices: list[str] = []
+    token = fallback_events.set(notices)
     try:
-        result = await research_graph.ainvoke(state)
-    except Exception as exc:  # surface agent failures as a clean API error
-        raise HTTPException(status_code=502, detail=f"Research pipeline failed: {exc}")
+        # Lock onto exactly one company (anchored to the website) before the agents run.
+        state["profile"] = await resolve_company(
+            state["company"], state["website"], state["llm_cfg"]
+        )
+        try:
+            result = await research_graph.ainvoke(state)
+        except Exception as exc:  # surface agent failures as a clean API error
+            raise HTTPException(status_code=502, detail=f"Research pipeline failed: {exc}")
+    finally:
+        fallback_events.reset(token)
     report = _report(result)
     _cache_put(state, report)
+    if notices:
+        notice = notices[0] if not notice else f"{notice} {notices[0]}"
     return {**report, "notice": notice}
 
 
@@ -222,29 +229,45 @@ async def research_stream(req: ResearchRequest):
             yield {"event": "report", "data": json.dumps(cached)}
             return
 
-        # Resolve the company to one entity (anchored to the website) and tell the
-        # client which organization we locked onto before the agents fan out.
-        state["profile"] = await resolve_company(
-            state["company"], state["website"], state["llm_cfg"]
-        )
-        yield {"event": "resolved", "data": json.dumps(state["profile"])}
+        # Shared bucket ask_json() appends to (from any parallel agent task) when
+        # the server's free Groq key gets rate-limited and a call is retried on
+        # Bedrock — surfaced below as a one-time "falling back" toast.
+        notices: list[str] = []
+        token = fallback_events.set(notices)
+        emitted_fallback = False
 
-        final: dict = dict(state)
         try:
-            async for update in research_graph.astream(state, stream_mode="updates"):
-                for node, payload in update.items():
-                    final.update(payload or {})
-                    yield {
-                        "event": "agent_done",
-                        "data": json.dumps(
-                            {"agent": node, "label": AGENT_LABELS.get(node, node)}
-                        ),
-                    }
-            report = _report(final)
-            _cache_put(state, report)
-            yield {"event": "report", "data": json.dumps(report)}
-        except Exception as exc:
-            yield {"event": "error", "data": json.dumps({"detail": str(exc)})}
+            # Resolve the company to one entity (anchored to the website) and tell the
+            # client which organization we locked onto before the agents fan out.
+            state["profile"] = await resolve_company(
+                state["company"], state["website"], state["llm_cfg"]
+            )
+            yield {"event": "resolved", "data": json.dumps(state["profile"])}
+            if notices and not emitted_fallback:
+                emitted_fallback = True
+                yield {"event": "provider_fallback", "data": json.dumps({"detail": notices[0]})}
+
+            final: dict = dict(state)
+            try:
+                async for update in research_graph.astream(state, stream_mode="updates"):
+                    for node, payload in update.items():
+                        final.update(payload or {})
+                        yield {
+                            "event": "agent_done",
+                            "data": json.dumps(
+                                {"agent": node, "label": AGENT_LABELS.get(node, node)}
+                            ),
+                        }
+                    if notices and not emitted_fallback:
+                        emitted_fallback = True
+                        yield {"event": "provider_fallback", "data": json.dumps({"detail": notices[0]})}
+                report = _report(final)
+                _cache_put(state, report)
+                yield {"event": "report", "data": json.dumps(report)}
+            except Exception as exc:
+                yield {"event": "error", "data": json.dumps({"detail": str(exc)})}
+        finally:
+            fallback_events.reset(token)
 
     return EventSourceResponse(event_source())
 

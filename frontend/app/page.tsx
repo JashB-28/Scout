@@ -207,6 +207,8 @@ export default function Home() {
         }
       } else if (event === "key_fallback") {
         showToast(JSON.parse(data).detail ?? "API key not valid — falling back to Groq.");
+      } else if (event === "provider_fallback") {
+        showToast(JSON.parse(data).detail ?? "Groq limit reached — falling back to Claude Haiku 4.5.");
       } else if (event === "agent_done") {
         setDone((prev) => new Set(prev).add(JSON.parse(data).agent as AgentId));
       } else if (event === "report") {
