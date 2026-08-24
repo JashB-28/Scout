@@ -38,7 +38,7 @@ briefing. Pass the company website for common names.
 
 ## Stack
 
-- **Backend** — FastAPI, LangGraph, Groq API (`llama-3.3-70b-versatile`), DuckDuckGo search, SSE streaming
+- **Backend** — FastAPI, LangGraph, Groq API (`openai/gpt-oss-120b`), DuckDuckGo search, SSE streaming
 - **Frontend** — Next.js (App Router), Tailwind CSS, Recharts
 
 ## Setup
