@@ -36,6 +36,20 @@ services:
       - backend
     restart: unless-stopped
 
+  scout-mcp:
+    build: ./mcp
+    image: scoutone-mcp
+    environment:
+      SCOUT_HTTP: "1"             # serve Streamable HTTP instead of stdio
+      SCOUT_PORT: "8765"
+      # Call the API in-cluster by service name — no hairpin out through Caddy/TLS.
+      SCOUT_BASE_URL: http://backend:8000
+    expose:
+      - "8765"                    # internal only; reached via Caddy at /mcp
+    depends_on:
+      - backend
+    restart: unless-stopped
+
   caddy:
     image: caddy:2-alpine
     ports:
